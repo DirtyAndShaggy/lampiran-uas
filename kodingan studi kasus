@@ -1,0 +1,192 @@
+# mount google drive
+from google.colab import drive
+drive.mount('/content/drive')
+# ini untuk memuat data set
+import pandas as pd
+
+df_full = pd.read_csv('/content/drive/MyDrive/Transjakarta_Dataset/dfTransjakarta.csv')
+df_sample = pd.read_csv('/content/drive/MyDrive/Transjakarta_Dataset/dfTransjakarta180kRows.csv')
+
+print(df_full.head())
+print(df_sample.head())
+# periksa dulu kolom di data set untuk tau nama kolomnya apa
+print(df_sample.columns)
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Step 1: Inisialisasi Q-table dengan lingkungan yang lebih kompleks
+grid_size = 20
+actions = ['up', 'down', 'left', 'right']
+Q = np.zeros((grid_size, grid_size, len(actions)))
+
+# Step 2: Definisi State dan Reward menggunakan dataset Transjakarta
+states = df_sample[['tapInStopsLat', 'tapInStopsLon']].drop_duplicates().values
+
+def take_action(state, action):
+    x, y = state
+    if action == 'up' and x > 0:
+        x -= 1
+    elif action == 'down' and x < grid_size - 1:
+        x += 1
+    elif action == 'left' and y > 0:
+        y -= 1
+    elif action == 'right' and y < grid_size - 1:
+        y += 1
+    next_state = (x, y)
+    reward = -1  # Contoh reward negatif untuk setiap langkah
+    # Tambahkan logika reward berdasarkan data Transjakarta
+    return next_state, reward
+
+# Step 3: Implementasi Q-Learning dengan dataset yang lebih realistis
+alpha = 0.1
+gamma = 0.6
+epsilon = 0.1
+
+for episode in range(2000):
+    state = (np.random.randint(grid_size), np.random.randint(grid_size))
+    for step in range(200):
+        if np.random.uniform(0, 1) < epsilon:
+            action = np.random.choice(actions)
+        else:
+            action = actions[np.argmax(Q[state[0], state[1], :])]
+        next_state, reward = take_action(state, action)
+        old_value = Q[state[0], state[1], actions.index(action)]
+        next_max = np.max(Q[next_state[0], next_state[1], :])
+        new_value = old_value + alpha * (reward + gamma * next_max - old_value)
+        Q[state[0], state[1], actions.index(action)] = new_value
+        state = next_state
+
+# Step 4: Evaluasi performa agen
+def evaluate_performance(Q):
+    total_rewards = []
+    for episode in range(100):
+        state = (np.random.randint(grid_size), np.random.randint(grid_size))
+        total_reward = 0
+
+        for step in range(100):
+            action = actions[np.argmax(Q[state[0], state[1], :])]
+            next_state, reward = take_action(state, action)
+            total_reward += reward
+            state = next_state
+
+        total_rewards.append(total_reward)
+    return total_rewards
+
+performance = evaluate_performance(Q)
+
+# Step 5: Visualisasi hasil kinerja
+plt.plot(performance)
+plt.xlabel('Episode')
+plt.ylabel('Total Reward')
+plt.title('Performance of Q-Learning')
+plt.show()
+
+# Step 6: Visualisasi Q-Table
+for i, action in enumerate(actions):
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(Q[:, :, i], annot=True, cmap="YlGnBu")
+    plt.title(f'Q-Table for Action "{action}"')
+    plt.show()
+
+# Step 7: Visualisasi trajektori agen
+def visualize_trajectory(Q, start_state):
+    state = start_state
+    trajectory = [state]
+    
+    for step in range(100):
+        action = actions[np.argmax(Q[state[0], state[1], :])]
+        next_state, reward = take_action(state, action)
+        trajectory.append(next_state)
+        state = next_state
+    
+    x, y = zip(*trajectory)
+    plt.plot(y, x, marker='o')
+    plt.gca().invert_yaxis()
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.title('Agent Trajectory')
+    plt.show()
+
+visualize_trajectory(Q, (np.random.randint(grid_size), np.random.randint(grid_size)))
+# visualisasi tingkatan keberhasilan
+# Inisialisasi list untuk menyimpan tingkat keberhasilan
+success_rate = []
+
+# Definisikan fungsi is_success
+def is_success(state):
+    # Ganti dengan logika untuk menentukan apakah state adalah state sukses
+    # Contoh: return state == (10, 10)  # Jika (10, 10) adalah state tujuan
+    return state == (grid_size - 1, grid_size - 1)  # Jika pojok kanan bawah adalah tujuan
+
+# Loop pelatihan Q-Learning
+for episode in range(2000):
+    state = (np.random.randint(grid_size), np.random.randint(grid_size))
+    success = 0  # Inisialisasi jumlah keberhasilan
+    for step in range(200):
+        if np.random.uniform(0, 1) < epsilon:
+            action = np.random.choice(actions)
+        else:
+            action = actions[np.argmax(Q[state[0], state[1], :])]
+        next_state, reward = take_action(state, action)
+        old_value = Q[state[0], state[1], actions.index(action)]
+        next_max = np.max(Q[next_state[0], next_state[1], :])
+        new_value = old_value + alpha * (reward + gamma * next_max - old_value)
+        Q[state[0], state[1], actions.index(action)] = new_value
+        state = next_state
+        if is_success(state):  # Sekarang is_success sudah didefinisikan
+            success += 1  # Tambahkan keberhasilan jika agen mencapai tujuan
+    
+    success_rate.append(success)  # Simpan tingkat keberhasilan untuk episode ini
+
+# Visualisasi Tingkat Keberhasilan
+plt.plot(success_rate)
+plt.xlabel('Episode')
+plt.ylabel('Jumlah Keberhasilan')
+plt.title('Tingkat Keberhasilan per Episode')
+plt.show()
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Data contoh untuk total reward per episode
+# total_rewards = [hasil reward yang diperoleh pada setiap episode]
+
+# Menggunakan numpy untuk membuat array berisi nomor episode
+episodes = np.arange(1, len(total_rewards) + 1)
+
+# Visualisasi Total Reward per Episode dalam bentuk Bar Chart
+plt.figure(figsize=(12, 6))
+plt.bar(episodes, total_rewards, color='skyblue')
+plt.xlabel('Episode')
+plt.ylabel('Total Reward')
+plt.title('Total Reward per Episode')
+plt.show()
+# visualisasi tingkat konvergen
+# Inisialisasi list untuk menyimpan perubahan nilai Q
+delta_Q = []
+
+# Loop pelatihan Q-Learning
+for episode in range(2000):
+    state = (np.random.randint(grid_size), np.random.randint(grid_size))
+    delta = 0  # Inisialisasi perubahan nilai Q
+    for step in range(200):
+        if np.random.uniform(0, 1) < epsilon:
+            action = np.random.choice(actions)
+        else:
+            action = actions[np.argmax(Q[state[0], state[1], :])]
+        next_state, reward = take_action(state, action)
+        old_value = Q[state[0], state[1], actions.index(action)]
+        next_max = np.max(Q[next_state[0], next_state[1], :])
+        new_value = old_value + alpha * (reward + gamma * next_max - old_value)
+        delta += abs(new_value - old_value)  # Hitung perubahan nilai Q
+        Q[state[0], state[1], actions.index(action)] = new_value
+        state = next_state
+    
+    delta_Q.append(delta)  # Simpan perubahan nilai Q untuk episode ini
+
+# Visualisasi Tingkat Konvergensi
+plt.plot(delta_Q)
+plt.xlabel('Episode')
+plt.ylabel('Perubahan Nilai Q')
+plt.title('Tingkat Konvergensi')
+plt.show()
